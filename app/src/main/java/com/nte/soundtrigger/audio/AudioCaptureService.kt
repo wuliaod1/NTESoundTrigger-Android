@@ -114,7 +114,7 @@ class AudioCaptureService : Service() {
         val frameSamples = Config.FRAME_SAMPLES
         val bufSamples = maxOf(
             AudioRecord.getMinBufferSize(sr, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT) / 2,
-            frameSamples * ch
+            frameSamples * ch * 2  // 2倍缓冲，防止 FFT 重帧丢音频
         )
 
         val capConf = AudioPlaybackCaptureConfiguration.Builder(mp)

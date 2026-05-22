@@ -8,25 +8,25 @@ object Config {
     // ── 音频 ──────────────────────────────
     const val SAMPLE_RATE = 32000        // 采样率 Hz
     const val CHANNELS = 2               // 输入声道数
-    const val FRAME_SEC = 0.08f          // 每次处理帧长 (秒)
+    const val FRAME_SEC = 0.04f          // 每次处理帧长 (秒) — 小→UI流畅
 
     // ── 高通滤波 ─────────────────────────
     const val HP_ORDER = 4               // Butterworth 阶数
     const val HP_CUTOFF = 1000f          // 截止频率 Hz
 
     // ── 闪避 ─────────────────────────────
-    const val DODGE_THRESH = 0.06f       // 匹配阈值 (峰值观察到 0.07~0.10)
-    const val DODGE_COOLDOWN = 0.8f       // 冷却秒数 (防止连续误触发)
+    const val DODGE_THRESH = 0.06f       // 匹配阈值
+    const val DODGE_COOLDOWN = 0.8f       // 冷却秒数
 
     // ── 反击 ─────────────────────────────
-    const val COUNTER_THRESH = 0.05f     // (峰值观察到 0.06~0.08)
+    const val COUNTER_THRESH = 0.05f     // 匹配阈值
     const val COUNTER_COOLDOWN = 1.5f
 
     // ── 整体 ─────────────────────────────
     const val ALLOW_REPEAT = false        // 是否允许连续触发
 
     // ── 监控 ─────────────────────────────
-    const val MONITOR_SEC = 5             // 波形图历史时长 (秒)
+    const val MONITOR_SEC = 3             // 波形图历史时长 (秒)
 
     // ── 参考样本 (assets 目录中的文件名) ──
     // 原始 .npy 已转换为 float32 raw 格式，采样率 32000，已预滤波
