@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
 
         AudioCaptureService.onScoreUpdate = { d, c -> monitorVM.updateScores(d, c) }
         AudioCaptureService.onTriggerLog = { m -> monitorVM.addLog(m) }
+        AudioCaptureService.onRawLevel = { l -> monitorVM.setRawLevel(l) }
 
         setContent {
             val isRunning by monitorVM.isRunning.collectAsState()
@@ -122,6 +123,7 @@ class MainActivity : ComponentActivity() {
         KeyInjector.destroy()
         AudioCaptureService.onScoreUpdate = null
         AudioCaptureService.onTriggerLog = null
+        AudioCaptureService.onRawLevel = null
     }
 
     // ── Shizuku ────────────────────────────
