@@ -15,12 +15,12 @@ object Config {
     const val HP_CUTOFF = 1000f          // 截止频率 Hz
 
     // ── 闪避 ─────────────────────────────
-    const val DODGE_THRESH = 0.13f       // 匹配阈值
-    const val DODGE_COOLDOWN = 0.5f       // 冷却秒数
+    const val DODGE_THRESH = 0.08f       // 匹配阈值 (原 0.13，降至噪声线上方)
+    const val DODGE_COOLDOWN = 0.8f       // 冷却秒数 (防止连续误触发)
 
     // ── 反击 ─────────────────────────────
-    const val COUNTER_THRESH = 0.10f
-    const val COUNTER_COOLDOWN = 1.2f
+    const val COUNTER_THRESH = 0.07f     // (原 0.10)
+    const val COUNTER_COOLDOWN = 1.5f
 
     // ── 整体 ─────────────────────────────
     const val ALLOW_REPEAT = false        // 是否允许连续触发
