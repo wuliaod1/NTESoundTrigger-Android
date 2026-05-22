@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NTE Sound Trigger</string>
+    <string name="channel_audio">音频捕获服务</string>
+    <string name="channel_audio_desc">正在监听游戏音频</string>
+    <string name="btn_start">开始监听</string>
+    <string name="btn_stop">停止监听</string>
+    <string name="btn_config">配置</string>
+    <string name="status_idle">等待启动</string>
+    <string name="status_running">运行中</string>
+    <string name="status_error">错误</string>
+    <string name="label_dodge">闪避 (RB)</string>
+    <string name="label_counter">反击 (X)</string>
+    <string name="label_threshold">匹配阈值</string>
+    <string name="label_cooldown">冷却时间 (秒)</string>
+    <string name="hint_root_required">需要 Root 权限发送手柄按键</string>
+    <string name="hint_audio_denied">无法捕获音频: 请检查录音权限或游戏音频策略</string>
+    <string name="hint_audio_capture">正在捕获系统音频…</string>
+    <string name="trigger_dodge_fired">闪避触发!</string>
+    <string name="trigger_counter_fired">反击触发!</string>
+</resources>

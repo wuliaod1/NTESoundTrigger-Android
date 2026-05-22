@@ -1,0 +1,26 @@
+# Android / Gradle
+.gradle/
+build/
+*.apk
+*.aab
+*.dex
+*.class
+*.log
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Assets (placeholders)
+app/src/main/assets/*.wav
+app/src/main/assets/*.npy
