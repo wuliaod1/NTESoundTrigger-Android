@@ -2,6 +2,7 @@ package com.nte.soundtrigger.audio
 
 import android.app.*
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
@@ -59,7 +60,15 @@ class AudioCaptureService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFY_ID, buildNotify())
+        // Android 14+: 必须显式指定 foregroundServiceType
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFY_ID, buildNotify(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            )
+        } else {
+            startForeground(NOTIFY_ID, buildNotify())
+        }
         scope.launch { runCapture() }
         return START_STICKY
     }
@@ -117,7 +126,7 @@ class AudioCaptureService : Service() {
                     .setSampleRate(sr)
                     .setChannelMask(AudioFormat.CHANNEL_IN_STEREO)
                     .build())
-                .setBufferSizeInBytes(bufSamples * 2) // 16bit = 2 bytes
+                .setBufferSizeInBytes(bufSamples * 2)
                 .build()
         } else null
 
@@ -168,10 +177,6 @@ class AudioCaptureService : Service() {
     // ────────────────────────────────────────
 
     private fun initWatchers() {
-        /**
-         * 加载 assets 中的 float32 raw 样本。
-         * 原始 .npy 已通过 filtfilt 预滤波，直接 RMS 归一化即可使用。
-         */
         fun loadRaw(path: String): FloatArray {
             val bytes = assets.open(path).readBytes()
             val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
@@ -191,7 +196,7 @@ class AudioCaptureService : Service() {
                 sampleRate = Config.SAMPLE_RATE, allowRepeat = Config.ALLOW_REPEAT)
             Log.i(TAG, "闪避 Watcher OK")
         } catch (e: Exception) {
-            Log.w(TAG, "闪避样本加载失败: ${e.message}")
+            Log.e(TAG, "闪避样本加载失败: ${e.message}", e)
         }
 
         try {
@@ -202,7 +207,7 @@ class AudioCaptureService : Service() {
                 sampleRate = Config.SAMPLE_RATE, allowRepeat = Config.ALLOW_REPEAT)
             Log.i(TAG, "反击 Watcher OK")
         } catch (e: Exception) {
-            Log.w(TAG, "反击样本加载失败: ${e.message}")
+            Log.e(TAG, "反击样本加载失败: ${e.message}", e)
         }
     }
 

@@ -1,9 +1,13 @@
 package com.nte.soundtrigger
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nte.soundtrigger.audio.AudioCaptureService
 import com.nte.soundtrigger.monitor.MonitorScreen
@@ -28,25 +33,43 @@ import rikka.shizuku.Shizuku
 
 class MainActivity : ComponentActivity() {
 
+    private val TAG = "NTE-Main"
     private lateinit var mpManager: MediaProjectionManager
     private lateinit var monitorVM: MonitorViewModel
+
+    // 先请求通知权限再请求录屏权限
+    private var pendingMediaProjection = false
+
+    private val notificationPermLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (pendingMediaProjection) {
+            pendingMediaProjection = false
+            if (granted) {
+                doRequestMediaProjection()
+            } else {
+                Toast.makeText(this, "通知权限被拒绝，运行中的服务将不显示通知", Toast.LENGTH_SHORT).show()
+                doRequestMediaProjection()
+            }
+        }
+    }
 
     private val mpLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            AudioCaptureService.mediaProjection =
-                mpManager.getMediaProjection(result.resultCode, result.data!!)
-            startCaptureService()
-        } else {
-            Toast.makeText(this, "需要音频捕获权限", Toast.LENGTH_LONG).show()
+        try {
+            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                AudioCaptureService.mediaProjection =
+                    mpManager.getMediaProjection(result.resultCode, result.data!!)
+                startCaptureService()
+            } else {
+                Toast.makeText(this, "需要音频捕获权限", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "MediaProjection 初始化失败", e)
+            Toast.makeText(this, "音频捕获初始化失败: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-
-    // Shizuku 权限回调
-    private val shizukuPermLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { /* Shizuku handles internally */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,19 +79,14 @@ class MainActivity : ComponentActivity() {
         mpManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         monitorVM = MonitorViewModel()
 
-        // 检查 Shizuku 状态
         checkShizuku()
 
-        // 服务 → VM 桥接
         AudioCaptureService.onScoreUpdate = { d, c -> monitorVM.updateScores(d, c) }
         AudioCaptureService.onTriggerLog = { m -> monitorVM.addLog(m) }
 
         setContent {
             val isRunning by monitorVM.isRunning.collectAsState()
             val hasRoot by monitorVM.hasRoot.collectAsState()
-            // hasRoot == true → Shizuku ready
-            // hasRoot == false → Shizuku not available
-            // hasRoot == null → checking
 
             Column(
                 modifier = Modifier
@@ -130,25 +148,44 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ── 服务 ───────────────────────────────
+    // ── 权限与启动 ─────────────────────────
+
+    private fun requestMediaProjection() {
+        // Android 13+: 先请求通知权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                pendingMediaProjection = true
+                notificationPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
+        }
+        doRequestMediaProjection()
+    }
+
+    private fun doRequestMediaProjection() {
+        mpLauncher.launch(mpManager.createScreenCaptureIntent())
+    }
 
     private fun startCaptureService() {
-        if (!KeyInjector.isAvailable() || !KeyInjector.hasPermission()) {
-            Toast.makeText(this, "⚠ Shizuku 未就绪 — 按键注入不可用", Toast.LENGTH_SHORT).show()
+        try {
+            if (!KeyInjector.isAvailable() || !KeyInjector.hasPermission()) {
+                Toast.makeText(this, "⚠ Shizuku 未就绪 — 按键注入不可用", Toast.LENGTH_SHORT).show()
+            }
+            startForegroundService(Intent(this, AudioCaptureService::class.java))
+            monitorVM.setRunning(true)
+            monitorVM.addLog("音频捕获已启动")
+        } catch (e: Exception) {
+            Log.e(TAG, "启动捕获服务失败", e)
+            monitorVM.addLog("✗ 启动失败: ${e.message}")
+            Toast.makeText(this, "启动失败: ${e.message}", Toast.LENGTH_LONG).show()
         }
-        startForegroundService(Intent(this, AudioCaptureService::class.java))
-        monitorVM.setRunning(true)
-        monitorVM.addLog("音频捕获已启动")
     }
 
     private fun stopCaptureService() {
         stopService(Intent(this, AudioCaptureService::class.java))
         monitorVM.setRunning(false)
         monitorVM.addLog("音频捕获已停止")
-    }
-
-    private fun requestMediaProjection() {
-        mpLauncher.launch(mpManager.createScreenCaptureIntent())
     }
 }
 

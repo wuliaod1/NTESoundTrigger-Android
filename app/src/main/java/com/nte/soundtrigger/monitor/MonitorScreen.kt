@@ -75,10 +75,10 @@ fun MonitorScreen(
             if (hasRoot != null) {
                 Surface(
                     shape = RoundedCornerShape(4.dp),
-                    color = if (hasRoot == true) Color(0xFFFFAB00) else Color(0xFFD32F2F)
+                    color = if (hasRoot == true) Color(0xFF00C853) else Color(0xFFD32F2F)
                 ) {
                     Text(
-                        if (hasRoot == true) "Root ✓" else "Root ✗",
+                        if (hasRoot == true) "Shizuku ✓" else "Shizuku ✗",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         color = Color.White,
                         fontSize = 12.sp
