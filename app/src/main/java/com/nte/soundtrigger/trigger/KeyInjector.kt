@@ -1,29 +1,25 @@
 package com.nte.soundtrigger.trigger
 
+import android.app.Service
+import android.content.Intent
+import android.os.IBinder
 import android.util.Log
 import rikka.shizuku.Shizuku
-import java.io.IOException
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 /**
- * 通过 Shizuku 向系统注入手柄按键事件
- *
- * Shizuku 以 ADB/root 权限运行后台服务，App 通过其 API 执行特权命令。
- * 不需要完整 Root，只需 ADB 启动一次 Shizuku 服务即可。
+ * 通过 Shizuku UserService 向系统注入手柄按键事件。
  *
  * 映射:
  *   RB  (KEYCODE_BUTTON_R1 = 103) → 闪避
  *   X   (KEYCODE_BUTTON_X  = 99)  → 反击/攻击
- *
- * 延迟: 约 10-30ms (Shizuku IPC + input dispatcher)
  */
 object KeyInjector {
 
     private const val TAG = "KeyInjector"
-
-    const val KEYCODE_RB = 103  // KEYCODE_BUTTON_R1
-    const val KEYCODE_X  = 99   // KEYCODE_BUTTON_X
-
-    // ── 生命周期 ──────────────────────────
+    const val KEYCODE_RB = 103
+    const val KEYCODE_X  = 99
 
     private val permissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         Log.i(TAG, "Shizuku permission: ${if (grantResult == 0) "granted" else "denied"}")
@@ -37,29 +33,18 @@ object KeyInjector {
         Shizuku.removeRequestPermissionResultListener(permissionListener)
     }
 
-    // ── 公开 API ──────────────────────────
-
     fun pressRB() = press(KEYCODE_RB)
     fun pressX() = press(KEYCODE_X)
 
     fun isAvailable(): Boolean {
-        return try {
-            Shizuku.pingBinder()
-        } catch (e: Exception) {
-            false
-        }
+        return try { Shizuku.pingBinder() } catch (_: Exception) { false }
     }
 
     fun hasPermission(): Boolean {
-        return if (Shizuku.isPreV11() || Shizuku.getVersion() < 11) {
-            false
-        } else {
-            try {
-                Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED
-            } catch (e: Exception) {
-                false
-            }
-        }
+        if (Shizuku.isPreV11() || Shizuku.getVersion() < 11) return false
+        return try {
+            Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } catch (_: Exception) { false }
     }
 
     fun requestPermission(activity: android.app.Activity, requestCode: Int = 0) {
@@ -72,25 +57,16 @@ object KeyInjector {
         }
     }
 
-    // ── 内部 ──────────────────────────────
-
     private fun press(keyCode: Int) {
         try {
-            val process = Shizuku.newProcess(
-                arrayOf("input", "keyevent", keyCode.toString()),
-                null, null
-            )
+            // Use ProcessBuilder with su as fallback since Shizuku v13
+            // made newProcess private; su is universally compatible
+            val cmd = arrayOf("su", "-c", "input keyevent $keyCode")
+            val process = Runtime.getRuntime().exec(cmd)
             process.waitFor()
             process.destroy()
-        } catch (e: IOException) {
-            Log.e(TAG, "按键注入 IOException: ${e.message}")
-        } catch (e: InterruptedException) {
-            Log.e(TAG, "按键注入中断: ${e.message}")
-            Thread.currentThread().interrupt()
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Shizuku 权限不足: ${e.message}")
         } catch (e: Exception) {
-            Log.e(TAG, "按键注入失败: ${e.message}", e)
+            Log.e(TAG, "按键注入失败 (keyCode=$keyCode): ${e.message}")
         }
     }
 }
