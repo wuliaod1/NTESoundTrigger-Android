@@ -36,10 +36,6 @@ class MonitorViewModel : ViewModel() {
     private val _hasRoot = MutableStateFlow<Boolean?>(null)
     val hasRoot: StateFlow<Boolean?> = _hasRoot.asStateFlow()
 
-    // 原始音频电平
-    private val _rawLevel = MutableStateFlow(0f)
-    val rawLevel: StateFlow<Float> = _rawLevel.asStateFlow()
-
     // ── 公开方法 ──────────────────────────
 
     fun updateScores(dodge: Float, counter: Float) {
@@ -67,9 +63,5 @@ class MonitorViewModel : ViewModel() {
 
     fun setRoot(has: Boolean) {
         _hasRoot.value = has
-    }
-
-    fun setRawLevel(level: Float) {
-        _rawLevel.value = level
     }
 }

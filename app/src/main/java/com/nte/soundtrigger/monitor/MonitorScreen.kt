@@ -42,7 +42,6 @@ fun MonitorScreen(
     val logs by viewModel.logs.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
     val hasRoot by viewModel.hasRoot.collectAsState()
-    val rawLevel by viewModel.rawLevel.collectAsState()
 
     Column(
         modifier = modifier
@@ -85,20 +84,6 @@ fun MonitorScreen(
                         fontSize = 12.sp
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-            }
-            if (isRunning) {
-                val rawColor = when {
-                    rawLevel < 0.001f -> Color(0xFFD32F2F)  // 静音 = 红色警告
-                    rawLevel < 0.01f -> Color(0xFFFFAB00)   // 微弱
-                    else -> Color(0xFF00C853)                // 正常
-                }
-                Text(
-                    "🔊 ${"%.4f".format(rawLevel)}",
-                    color = rawColor,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
-                )
             }
         }
 

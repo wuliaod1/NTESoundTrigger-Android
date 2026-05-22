@@ -39,10 +39,6 @@ class AudioCaptureService : Service() {
         var onTriggerLog: ((String) -> Unit)? = null
         var onScoreUpdate: ((Float, Float) -> Unit)? = null
 
-        /** 原始音频 RMS 电平 (0~1) — 用于确认音频是否正在被捕获 */
-        @Volatile var rawLevel = 0f; private set
-        var onRawLevel: ((Float) -> Unit)? = null
-
         /**
          * 由 MainActivity 在 MediaProjection 授权后设置。
          * Android 14+ 要求前台服务必须先运行才能调用 getMediaProjection()，
@@ -121,22 +117,10 @@ class AudioCaptureService : Service() {
             frameSamples * ch
         )
 
-        // 不加 usage 白名单 — 捕获全部系统音频。
-        // 不同游戏/设备可能使用 USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN 之外的类型，
-        // 加白名单 = 白名单外的音频全被静音。
         val capConf = AudioPlaybackCaptureConfiguration.Builder(mp)
             .addMatchingUsage(AudioAttributes.USAGE_GAME)
             .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
             .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
-            .addMatchingUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-            .addMatchingUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING)
-            .addMatchingUsage(AudioAttributes.USAGE_NOTIFICATION)
-            .addMatchingUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-            .addMatchingUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
-            .addMatchingUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
-            .addMatchingUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-            .addMatchingUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-            .addMatchingUsage(AudioAttributes.USAGE_ALARM)
             .build()
 
         audioRecord = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -175,13 +159,6 @@ class AudioCaptureService : Service() {
             }
 
             val filtered = fb.process(mono)
-
-            // 原始 RMS 电平 (是否真的捕获到声音?)
-            var rawRms = 0.0
-            for (v in mono) rawRms += v * v
-            rawLevel = kotlin.math.sqrt(rawRms / samples).toFloat()
-            onRawLevel?.invoke(rawLevel)
-
             val ds = dodgeWatcher?.feed(filtered) ?: 0f
             val cs = counterWatcher?.feed(filtered) ?: 0f
 
