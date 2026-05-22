@@ -41,7 +41,10 @@ class Watcher(
     private val allowRepeat: Boolean = false,
 
     /** 触发回调 → UI 日志 */
-    private val onFire: ((String) -> Unit)? = null
+    private val onFire: ((String) -> Unit)? = null,
+
+    /** FFT 跳帧：每 N 帧跑一次 FFT（默认 2，省 50% CPU） */
+    private val fftSkipFrames: Int = 2
 ) {
     companion object {
         private const val TAG = "Watcher"
@@ -61,6 +64,11 @@ class Watcher(
     private val cooldownMs = (cooldownSec * 1000).toLong()
     private var lastFireTime = 0L
     private var ready = true
+
+    // FFT 跳帧
+    private var frameCount = 0
+    private var cachedScore = 0f
+    private val fftOffset: Int = (Math.random() * fftSkipFrames).toInt()  // 随机错开
 
     init {
         // RMS 归一化参考信号
@@ -92,9 +100,14 @@ class Watcher(
      * @return 当前帧的匹配分数 (Float)
      */
     fun feed(frame: DoubleArray): Float {
+        // 始终写入缓冲 — 保证音频不丢
         buffer.write(frame)
 
         if (buffer.size < refNormalized.size) return 0f
+
+        // FFT 跳帧：每 fftSkipFrames 帧跑一次，其余返回缓存分数
+        frameCount++
+        if ((frameCount + fftOffset) % fftSkipFrames != 0) return cachedScore
 
         // 从缓冲区读取完整窗口
         val window = buffer.read()
@@ -107,6 +120,7 @@ class Watcher(
 
         // FFT 交叉相关
         val score = RealFFT.normalizedMaxCorr(windowNorm, refNormalized)
+        cachedScore = score
 
         // 阈值判断
         val now = System.currentTimeMillis()
@@ -143,5 +157,7 @@ class Watcher(
         buffer.reset()
         ready = true
         lastFireTime = 0L
+        frameCount = 0
+        cachedScore = 0f
     }
 }

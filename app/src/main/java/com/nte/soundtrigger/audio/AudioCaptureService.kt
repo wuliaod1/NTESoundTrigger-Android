@@ -193,7 +193,8 @@ class AudioCaptureService : Service() {
                 action = { KeyInjector.pressRB() },
                 threshold = Config.DODGE_THRESH, cooldownSec = Config.DODGE_COOLDOWN,
                 sampleRate = Config.SAMPLE_RATE, allowRepeat = Config.ALLOW_REPEAT,
-                onFire = { onTriggerLog?.invoke(it) })
+                onFire = { onTriggerLog?.invoke(it) },
+                fftSkipFrames = 2)  // 32K FFT, 每2帧跑一次
             Log.i(TAG, "闪避 Watcher OK")
         } catch (e: Exception) {
             Log.e(TAG, "闪避样本加载失败: ${e.message}", e)
@@ -205,7 +206,8 @@ class AudioCaptureService : Service() {
                 action = { KeyInjector.pressX() },
                 threshold = Config.COUNTER_THRESH, cooldownSec = Config.COUNTER_COOLDOWN,
                 sampleRate = Config.SAMPLE_RATE, allowRepeat = Config.ALLOW_REPEAT,
-                onFire = { onTriggerLog?.invoke(it) })
+                onFire = { onTriggerLog?.invoke(it) },
+                fftSkipFrames = 4)  // 65K FFT, 每4帧跑一次
             Log.i(TAG, "反击 Watcher OK")
         } catch (e: Exception) {
             Log.e(TAG, "反击样本加载失败: ${e.message}", e)
