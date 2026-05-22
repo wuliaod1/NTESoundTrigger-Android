@@ -22,17 +22,15 @@ import kotlinx.coroutines.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/**
- * 音频捕获前台服务
- *
- * 核心管线: AudioPlaybackCapture → 高通滤波 → 环形缓冲 → FFT 相关 → 按键注入
- */
 class AudioCaptureService : Service() {
 
     companion object {
         private const val TAG = "NTE"
         private const val CHANNEL_ID = "nte_capture"
         private const val NOTIFY_ID = 1
+
+        const val ACTION_SETUP = "com.nte.soundtrigger.SETUP"
+        const val ACTION_START_CAPTURE = "com.nte.soundtrigger.START_CAPTURE"
 
         @Volatile var isRunning = false; private set
         @Volatile var dodgeScore = 0f; private set
@@ -41,7 +39,11 @@ class AudioCaptureService : Service() {
         var onTriggerLog: ((String) -> Unit)? = null
         var onScoreUpdate: ((Float, Float) -> Unit)? = null
 
-        /** 由 MainActivity 在获取权限后设置 */
+        /**
+         * 由 MainActivity 在 MediaProjection 授权后设置。
+         * Android 14+ 要求前台服务必须先运行才能调用 getMediaProjection()，
+         * 因此 MainActivity 先启动服务（ACTION_SETUP），再请求权限，最后设置此字段并发送 ACTION_START_CAPTURE。
+         */
         @Volatile var mediaProjection: MediaProjection? = null
     }
 
@@ -60,16 +62,20 @@ class AudioCaptureService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Android 14+: 必须显式指定 foregroundServiceType
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFY_ID, buildNotify(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            )
-        } else {
-            startForeground(NOTIFY_ID, buildNotify())
+        val action = intent?.action ?: ACTION_SETUP
+
+        when (action) {
+            ACTION_SETUP -> {
+                // 只启动前台服务，不开始捕获
+                startForegroundCompat(NOTIFY_ID, buildNotify())
+                Log.i(TAG, "前台服务已启动，等待 MediaProjection 授权...")
+            }
+            ACTION_START_CAPTURE -> {
+                startForegroundCompat(NOTIFY_ID, buildNotify())
+                scope.launch { runCapture() }
+            }
         }
-        scope.launch { runCapture() }
+
         return START_STICKY
     }
 
@@ -111,7 +117,6 @@ class AudioCaptureService : Service() {
             frameSamples * ch
         )
 
-        // AudioPlaybackCapture 配置
         val capConf = AudioPlaybackCaptureConfiguration.Builder(mp)
             .addMatchingUsage(AudioAttributes.USAGE_GAME)
             .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
@@ -172,19 +177,13 @@ class AudioCaptureService : Service() {
         isRunning = false
     }
 
-    // ────────────────────────────────────────
-    //  Watcher 初始化
-    // ────────────────────────────────────────
-
     private fun initWatchers() {
         fun loadRaw(path: String): FloatArray {
             val bytes = assets.open(path).readBytes()
             val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
             val floats = FloatArray(bytes.size / 4)
-            for (i in floats.indices) {
-                floats[i] = buf.float
-            }
-            Log.i(TAG, "$path: ${floats.size} samples, range=[${floats.minOrNull()}, ${floats.maxOrNull()}]")
+            for (i in floats.indices) floats[i] = buf.float
+            Log.i(TAG, "$path: ${floats.size} samples")
             return floats
         }
 
@@ -212,8 +211,17 @@ class AudioCaptureService : Service() {
     }
 
     // ────────────────────────────────────────
-    //  通知
+    //  通知 & 工具
     // ────────────────────────────────────────
+
+    private fun startForegroundCompat(id: Int, notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(id, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            startForeground(id, notification)
+        }
+    }
 
     private fun makeChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
