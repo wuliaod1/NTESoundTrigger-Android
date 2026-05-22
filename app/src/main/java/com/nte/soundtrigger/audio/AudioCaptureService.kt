@@ -114,7 +114,7 @@ class AudioCaptureService : Service() {
         val frameSamples = Config.FRAME_SAMPLES
         val bufSamples = maxOf(
             AudioRecord.getMinBufferSize(sr, AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT) / 2,
-            frameSamples * ch * 2  // 2倍缓冲，防止 FFT 重帧丢音频
+            frameSamples * ch
         )
 
         val capConf = AudioPlaybackCaptureConfiguration.Builder(mp)
@@ -193,8 +193,7 @@ class AudioCaptureService : Service() {
                 action = { KeyInjector.pressRB() },
                 threshold = Config.DODGE_THRESH, cooldownSec = Config.DODGE_COOLDOWN,
                 sampleRate = Config.SAMPLE_RATE, allowRepeat = Config.ALLOW_REPEAT,
-                onFire = { onTriggerLog?.invoke(it) },
-                fftSkipFrames = 2)  // 32K FFT, 每2帧跑一次
+                onFire = { onTriggerLog?.invoke(it) })
             Log.i(TAG, "闪避 Watcher OK")
         } catch (e: Exception) {
             Log.e(TAG, "闪避样本加载失败: ${e.message}", e)
@@ -206,8 +205,7 @@ class AudioCaptureService : Service() {
                 action = { KeyInjector.pressX() },
                 threshold = Config.COUNTER_THRESH, cooldownSec = Config.COUNTER_COOLDOWN,
                 sampleRate = Config.SAMPLE_RATE, allowRepeat = Config.ALLOW_REPEAT,
-                onFire = { onTriggerLog?.invoke(it) },
-                fftSkipFrames = 4)  // 65K FFT, 每4帧跑一次
+                onFire = { onTriggerLog?.invoke(it) })
             Log.i(TAG, "反击 Watcher OK")
         } catch (e: Exception) {
             Log.e(TAG, "反击样本加载失败: ${e.message}", e)

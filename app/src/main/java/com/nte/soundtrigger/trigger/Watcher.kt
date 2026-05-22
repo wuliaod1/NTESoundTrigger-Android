@@ -11,19 +11,17 @@ import kotlin.math.sqrt
  * 音效匹配检测器
  *
  * 每个 Watcher 实例管理：
- *   1. 一个参考波形 (ref)
+ *   1. 一个参考波形 (ref) — 过长自动截断到 MAX_REF_SAMPLES
  *   2. 一个环形缓冲区 (累积流式音频)
- *   3. FFT 交叉相关匹配
+ *   3. FFT 交叉相关匹配 (每帧运行)
  *   4. 阈值判定 + 冷却计时
- *
- * 架构对齐原始项目的 Listener.Watcher，完全重写。
  */
 class Watcher(
     /** 名称 (用于日志) */
     val name: String,
 
     /** 参考波形样本 (已高通滤波 + RMS归一化) */
-    private val ref: FloatArray,
+    ref: FloatArray,
 
     /** 触发动作 */
     private val action: () -> Unit,
@@ -41,19 +39,22 @@ class Watcher(
     private val allowRepeat: Boolean = false,
 
     /** 触发回调 → UI 日志 */
-    private val onFire: ((String) -> Unit)? = null,
-
-    /** FFT 跳帧：每 N 帧跑一次 FFT（默认 2，省 50% CPU） */
-    private val fftSkipFrames: Int = 2
+    private val onFire: ((String) -> Unit)? = null
 ) {
     companion object {
         private const val TAG = "Watcher"
+        /** 参考样本最大长度 (点数) — 限制 FFT 尺寸，保证实时性 */
+        const val MAX_REF_SAMPLES = 16000  // 0.5s @ 32kHz
     }
 
-    // 参考波形 RMS 归一化缓存
+    // 截断过长参考
+    private val refTrimmed: FloatArray =
+        if (ref.size > MAX_REF_SAMPLES) ref.copyOf(MAX_REF_SAMPLES) else ref
+
+    // 参考波形 RMS 归一化
     private val refNormalized: FloatArray
 
-    // 缓冲区: 窗口长度 = max(参考长度/采样率, 0.5秒)
+    // 缓冲区: 窗口长度 = max(参考长度/采样率, 0.3秒)
     private val winSec: Float
     private val buffer: RingBuffer
 
@@ -65,36 +66,34 @@ class Watcher(
     private var lastFireTime = 0L
     private var ready = true
 
-    // FFT 跳帧
-    private var frameCount = 0
-    private var cachedScore = 0f
-    private val fftOffset: Int = (Math.random() * fftSkipFrames).toInt()  // 随机错开
-
     init {
+        if (ref.size > MAX_REF_SAMPLES) {
+            Log.i(TAG, "$name: 参考样本截断 ${ref.size} → $MAX_REF_SAMPLES 点")
+        }
+
         // RMS 归一化参考信号
-        val refDouble = DoubleArray(ref.size) { ref[it].toDouble() }
+        val refDouble = DoubleArray(refTrimmed.size) { refTrimmed[it].toDouble() }
         var sumSq = 0.0
         for (v in refDouble) sumSq += v * v
-        val rms = sqrt(sumSq / ref.size + 1e-6)
-        refNormalized = FloatArray(ref.size) { (refDouble[it] / rms).toFloat() }
+        val rms = sqrt(sumSq / refTrimmed.size + 1e-6)
+        refNormalized = FloatArray(refTrimmed.size) { (refDouble[it] / rms).toFloat() }
 
-        // 窗口长度 = max(参考长度, 0.5s)
-        val refSec = ref.size.toFloat() / sampleRate
-        winSec = max(refSec, 0.5f)
-
+        // 窗口长度 = max(参考时长, 0.3秒)
+        val refSec = refTrimmed.size.toFloat() / sampleRate
+        winSec = max(refSec, 0.3f)
         val winSamples = (winSec * sampleRate).toInt()
         buffer = RingBuffer(winSamples)
 
         // FFT 长度 = 最小 2^k ≥ (窗口 + 参考 - 1)
-        fftN = RealFFT.nextPowerOf2(winSamples + ref.size - 1)
+        fftN = RealFFT.nextPowerOf2(winSamples + refTrimmed.size - 1)
 
-        Log.i(TAG, "$name: winSec=$winSec, winSamples=$winSamples, fftN=$fftN, thresh=$threshold, cd=${cooldownSec}s")
+        Log.i(TAG, "$name: ref=${refTrimmed.size}, win=${winSamples}, fftN=$fftN, thresh=$threshold, cd=${cooldownSec}s")
     }
 
     // ── 公开 API ──────────────────────────
 
     /**
-     * 喂入一帧音频数据
+     * 喂入一帧音频数据，每帧运行 FFT 匹配
      *
      * @param frame 高通滤波后的音频帧 (Double)
      * @return 当前帧的匹配分数 (Float)
@@ -104,10 +103,6 @@ class Watcher(
         buffer.write(frame)
 
         if (buffer.size < refNormalized.size) return 0f
-
-        // FFT 跳帧：每 fftSkipFrames 帧跑一次，其余返回缓存分数
-        frameCount++
-        if ((frameCount + fftOffset) % fftSkipFrames != 0) return cachedScore
 
         // 从缓冲区读取完整窗口
         val window = buffer.read()
@@ -120,7 +115,6 @@ class Watcher(
 
         // FFT 交叉相关
         val score = RealFFT.normalizedMaxCorr(windowNorm, refNormalized)
-        cachedScore = score
 
         // 阈值判断
         val now = System.currentTimeMillis()
@@ -129,27 +123,13 @@ class Watcher(
                 fire(score)
                 lastFireTime = now
                 ready = false
-            } else {
-                ready = true
             }
+        } else {
+            // 冷却中 — 持续低于阈值时恢复就绪
+            if (score < threshold * 0.5f) ready = true
         }
 
         return score
-    }
-
-    // ── 内部 ──────────────────────────────
-
-    private fun fire(score: Float) {
-        try {
-            val t0 = System.nanoTime()
-            action()
-            val elapsedMs = (System.nanoTime() - t0) / 1_000_000f
-            val msg = "⚡ ${name}触发! score=%.4f (%.1fms)".format(score, elapsedMs)
-            Log.i(TAG, msg)
-            onFire?.invoke(msg)
-        } catch (e: Exception) {
-            Log.e(TAG, "$name 触发失败: ${e.message}", e)
-        }
     }
 
     /** 重置缓冲区 */
@@ -157,7 +137,15 @@ class Watcher(
         buffer.reset()
         ready = true
         lastFireTime = 0L
-        frameCount = 0
-        cachedScore = 0f
+    }
+
+    // ── 内部 ──────────────────────────────
+
+    private fun fire(score: Float) {
+        val latencyMs = (winSec * 500).toLong()  // 约半窗口延迟
+        val msg = "⚡ $name 触发! score=%.4f (${latencyMs}ms)".format(score)
+        Log.i(TAG, msg)
+        onFire?.invoke(msg)
+        action()
     }
 }

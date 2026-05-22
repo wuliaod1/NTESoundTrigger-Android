@@ -8,18 +8,18 @@ object Config {
     // ── 音频 ──────────────────────────────
     const val SAMPLE_RATE = 32000        // 采样率 Hz
     const val CHANNELS = 2               // 输入声道数
-    const val FRAME_SEC = 0.04f          // 每次处理帧长 (秒) — 小→UI流畅
+    const val FRAME_SEC = 0.08f          // 每次处理帧长 (秒)
 
     // ── 高通滤波 ─────────────────────────
     const val HP_ORDER = 4               // Butterworth 阶数
     const val HP_CUTOFF = 1000f          // 截止频率 Hz
 
     // ── 闪避 ─────────────────────────────
-    const val DODGE_THRESH = 0.06f       // 匹配阈值
+    const val DODGE_THRESH = 0.08f       // 匹配阈值
     const val DODGE_COOLDOWN = 0.8f       // 冷却秒数
 
     // ── 反击 ─────────────────────────────
-    const val COUNTER_THRESH = 0.05f     // 匹配阈值
+    const val COUNTER_THRESH = 0.07f     // 匹配阈值
     const val COUNTER_COOLDOWN = 1.5f
 
     // ── 整体 ─────────────────────────────
