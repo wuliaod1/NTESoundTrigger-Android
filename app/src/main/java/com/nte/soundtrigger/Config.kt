@@ -5,7 +5,8 @@ package com.nte.soundtrigger
  * 所有参数集中管理，运行时可在设置界面调整
  */
 object Config {
-    // ── 音频 ──────────────────────────────
+    // ── 构建信息 ─────────────────────────
+    const val VERSION = "0.2-alpha"
     const val SAMPLE_RATE = 32000        // 采样率 Hz
     const val CHANNELS = 2               // 输入声道数
     const val FRAME_SEC = 0.08f          // 每次处理帧长 (秒)

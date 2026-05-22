@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nte.soundtrigger.Config
 import kotlin.math.max
 
 // ── 颜色方案 ──────────────────────────────
@@ -52,7 +53,7 @@ fun MonitorScreen(
     ) {
         // ── 标题栏 ─────────────────────────
         Text(
-            "NTE Sound Trigger",
+            "NTE Sound Trigger v${Config.VERSION}",
             color = TextBright,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
@@ -93,8 +94,9 @@ fun MonitorScreen(
                     rawLevel < 0.01f -> Color(0xFFFFAB00)   // 微弱
                     else -> Color(0xFF00C853)                // 正常
                 }
+                val rawText = java.lang.String.format(java.util.Locale.US, "%.4f", rawLevel)
                 Text(
-                    "🔊 ${"%.4f".format(rawLevel)}",
+                    "\uD83D\uDD0A $rawText",
                     color = rawColor,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace
