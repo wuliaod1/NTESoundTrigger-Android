@@ -3,6 +3,7 @@
 基于《异环》游戏音效波形识别的自动闪避/反击触发器 — Android 移植版（完全重写，不依赖原项目代码）。
 
 > ⚠️ **当前状态**: 基础框架功能正常（音频捕获→滤波→FFT匹配→按键注入），但**音效识别成功率较低**。
+> **Shizuku 键码发送尚未实现**（API `newProcess()` 为 private），当前降级使用 `su` 注入，需 Root 权限。
 > 详情见下方 [已知问题](#已知问题--求助)，欢迎 PR / Issue 指教。
 
 ## 功能
@@ -10,7 +11,7 @@
 - 🎯 **实时音频捕获**: AudioPlaybackCapture API (Android 10+) 捕获系统内部游戏音频
 - 🌊 **高通滤波**: 4 阶 Butterworth 滤波器，去除低频噪声
 - 🔁 **FFT 交叉相关**: 频域匹配，精准识别预设的闪避/反击音效
-- 🎮 **手柄按键注入**: 通过 Shizuku 跨进程发送 RB (闪避) / X (反击) 键码
+- 🎮 **手柄按键注入**: 通过 `su` 发送 RB (闪避) / X (反击) 键码（暂需 Root；Shizuku 免 Root 方案待实现）
 - ⏱️ **独立冷却**: 闪避 0.8s / 反击 1.5s 冷却，杜绝重复触发
 - 📊 **实时监控**: Compose Canvas 波形图 + 峰值分数 + 触发日志
 
@@ -19,7 +20,8 @@
 | 要求 | 说明 |
 |------|------|
 | Android 版本 | ≥ 10 (API 29) — AudioPlaybackCapture |
-| Shizuku | **必需** — 跨应用注入手柄按键（不需要 Root） |
+| Root | **当前必需** — Shizuku 键码注入未实现，暂用 `su` 注入按键 |
+| Shizuku | 用于检测提权环境；键码发送待实现 |
 | 音频捕获权限 | 首次启动需授权 MediaProjection |
 | 游戏支持 | 游戏需允许音频捕获（未设置 `ALLOW_CAPTURE_BY_SYSTEM` 标记） |
 
@@ -62,11 +64,12 @@ cd NTESoundTrigger-Android
 
 ## 使用
 
-1. 安装 [Shizuku](https://github.com/RikkaApps/Shizuku/releases) 并启动
-2. 安装本应用 APK
-3. 打开应用，授权 Shizuku 权限
-4. 点击「开始监听」，授权录屏/音频捕获权限
-5. 启动游戏，音效命中时自动触发对应按键
+1. 确保设备已 Root（当前 Shizuku 键码注入未实现，暂需 `su`）
+2. 安装 [Shizuku](https://github.com/RikkaApps/Shizuku/releases) 并启动（用于环境检测）
+3. 安装本应用 APK
+4. 打开应用，授权 Shizuku 权限
+5. 点击「开始监听」，授权录屏/音频捕获权限
+6. 启动游戏，音效命中时自动触发对应按键
 
 ## 当前配置
 
@@ -108,9 +111,15 @@ cd NTESoundTrigger-Android
 - 如何在 Android 端高效实现低延迟的频域匹配？
 - 音频捕获的 `USAGE` 白名单是否需要在不同设备/ROM 上动态调整？
 
-### 2. Shizuku 免 Root 方案不完善
+### 2. Shizuku 免 Root 键码注入未实现
 
-当前 Shizuku API 13.1.5 中 `newProcess()` 为 private，暂用 `su` 指令注入键码。理想方案应使用 `UserService` 或直接操作 `InputManager.injectInputEvent()`（需 `INJECT_EVENTS` 权限，Shizuku 可提供）。
+**现状**: Shizuku API 13.1.5 中 `newProcess()` 为 `private`，无法通过此接口发送 `input keyevent` 到系统 shell。当前降级使用 `Runtime.exec("su -c input keyevent ...")`，**需要设备已 Root**。
+
+**待解决**: 研究 Shizuku `UserService` 或直接调用 `InputManager.injectInputEvent()`（需 `INJECT_EVENTS` 权限，可通过 Shizuku 进程上下文获取而不报 SecurityException）。
+
+参考:
+- [Shizuku UserService 文档](https://github.com/RikkaApps/Shizuku-API#user-service)
+- [injectInputEvent 使用条件](https://developer.android.com/reference/android/hardware/input/InputManager#injectInputEvent(android.view.InputEvent,%20int))
 
 ### 3. 仅 Debug 构建，缺少 Release 签名
 
