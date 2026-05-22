@@ -39,6 +39,8 @@ fun MonitorScreen(
     val counter by viewModel.counterHistory.collectAsState()
     val dodgeScore by viewModel.dodgeScore.collectAsState()
     val counterScore by viewModel.counterScore.collectAsState()
+    val peakDodge by viewModel.peakDodge.collectAsState()
+    val peakCounter by viewModel.peakCounter.collectAsState()
     val logs by viewModel.logs.collectAsState()
     val isRunning by viewModel.isRunning.collectAsState()
     val hasRoot by viewModel.hasRoot.collectAsState()
@@ -94,8 +96,8 @@ fun MonitorScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            ScoreCard("闪避 RB", dodgeScore, Dodge)
-            ScoreCard("反击 X", counterScore, Counter)
+            ScoreCard("闪避 RB", dodgeScore, peakDodge, Dodge)
+            ScoreCard("反击 X", counterScore, peakCounter, Counter)
         }
 
         Spacer(Modifier.height(12.dp))
@@ -157,7 +159,7 @@ fun MonitorScreen(
 // ── 分数卡片 ──────────────────────────────
 
 @Composable
-private fun ScoreCard(label: String, score: Float, accent: Color) {
+private fun ScoreCard(label: String, score: Float, peak: Float, accent: Color) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Surface),
         shape = RoundedCornerShape(8.dp),
@@ -175,6 +177,14 @@ private fun ScoreCard(label: String, score: Float, accent: Color) {
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
             )
+            if (peak > 0f) {
+                Text(
+                    "峰值${String.format("%.4f", peak)}",
+                    color = TextDim,
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
     }
 }

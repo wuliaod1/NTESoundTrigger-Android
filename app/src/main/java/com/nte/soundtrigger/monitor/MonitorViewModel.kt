@@ -28,6 +28,13 @@ class MonitorViewModel : ViewModel() {
     private val _counterScore = MutableStateFlow(0f)
     val counterScore: StateFlow<Float> = _counterScore.asStateFlow()
 
+    // 峰值分数 (运行期间观察到的最高分)
+    private val _peakDodge = MutableStateFlow(0f)
+    val peakDodge: StateFlow<Float> = _peakDodge.asStateFlow()
+
+    private val _peakCounter = MutableStateFlow(0f)
+    val peakCounter: StateFlow<Float> = _peakCounter.asStateFlow()
+
     // 服务状态
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -41,6 +48,8 @@ class MonitorViewModel : ViewModel() {
     fun updateScores(dodge: Float, counter: Float) {
         _dodgeScore.value = dodge
         _counterScore.value = counter
+        if (dodge > _peakDodge.value) _peakDodge.value = dodge
+        if (counter > _peakCounter.value) _peakCounter.value = counter
 
         // 追加到历史
         val d = _dodgeHistory.value.copyOf()
@@ -59,6 +68,10 @@ class MonitorViewModel : ViewModel() {
 
     fun setRunning(running: Boolean) {
         _isRunning.value = running
+        if (!running) {
+            _peakDodge.value = 0f
+            _peakCounter.value = 0f
+        }
     }
 
     fun setRoot(has: Boolean) {
