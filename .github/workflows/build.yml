@@ -23,20 +23,29 @@ jobs:
 
       - name: Set up Android SDK
         run: |
-          # Use pre-installed SDK on ubuntu-22.04
-          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          ANDROID_HOME=/usr/local/lib/android/sdk
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           
-          # Accept licenses
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          # Download cmdline-tools if not present
+          if [ ! -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            mkdir -p $ANDROID_HOME
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q commandlinetools-linux-11076708_latest.zip -d $ANDROID_HOME/cmdline-tools
+            mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          fi
           
-          # Install required packages
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+          # Accept licenses via file input (avoids pipe issues)
+          printf 'y\ny\ny\ny\ny\n' > /tmp/yes.txt
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses < /tmp/yes.txt
+          
+          # Install required components
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             "platforms;android-34" \
             "build-tools;34.0.0"
 
       - name: Build Debug APK
         run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
           ./gradlew assembleDebug
 
       - name: Upload APK
