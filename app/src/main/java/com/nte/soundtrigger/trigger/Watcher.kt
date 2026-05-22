@@ -38,7 +38,10 @@ class Watcher(
     private val sampleRate: Int = 32000,
 
     /** 是否允许连续触发 */
-    private val allowRepeat: Boolean = false
+    private val allowRepeat: Boolean = false,
+
+    /** 触发回调 → UI 日志 */
+    private val onFire: ((String) -> Unit)? = null
 ) {
     companion object {
         private const val TAG = "Watcher"
@@ -127,7 +130,9 @@ class Watcher(
             val t0 = System.nanoTime()
             action()
             val elapsedMs = (System.nanoTime() - t0) / 1_000_000f
-            Log.i(TAG, "$name 触发! score=$score 延迟=${elapsedMs}ms")
+            val msg = "⚡ ${name}触发! score=%.4f (%.1fms)".format(score, elapsedMs)
+            Log.i(TAG, msg)
+            onFire?.invoke(msg)
         } catch (e: Exception) {
             Log.e(TAG, "$name 触发失败: ${e.message}", e)
         }
