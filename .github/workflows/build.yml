@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -23,23 +23,26 @@ jobs:
 
       - name: Set up Android SDK
         run: |
-          ANDROID_HOME=/usr/local/lib/android/sdk
+          ANDROID_HOME=${{ runner.tool_cache }}/android-sdk
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          mkdir -p $ANDROID_HOME
           
-          # Download cmdline-tools if not present
-          if [ ! -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            mkdir -p $ANDROID_HOME
-            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-            unzip -q commandlinetools-linux-11076708_latest.zip -d $ANDROID_HOME/cmdline-tools
-            mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-          fi
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-11076708_latest.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
           
-          # Accept licenses via file input (avoids pipe issues)
-          printf 'y\ny\ny\ny\ny\n' > /tmp/yes.txt
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses < /tmp/yes.txt
+          # Install expect and auto-accept licenses via pseudo-TTY
+          sudo apt-get install -y -qq expect > /dev/null 2>&1
+          expect -c "
+            spawn $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=$ANDROID_HOME
+            expect {
+              \"Accept?\" { send -- \"y\r\"; exp_continue }
+              eof
+            }
+          "
           
-          # Install required components
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$ANDROID_HOME \
             "platforms;android-34" \
             "build-tools;34.0.0"
 
